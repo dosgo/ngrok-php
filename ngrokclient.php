@@ -1,16 +1,16 @@
 <?php
-
+ConsoleOut("ngrok-php v1.0");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 
 //检测大小端
 define('BIG_ENDIAN', pack('L', 1) === pack('N', 1));
 
-$seraddr = 'dddd';
-$port = 4443;
+$seraddr = 'dddd';  //ngrok服务器地址
+$port = 4443;    //端口
 
 
-
+//你要映射到通道
 $Tunnels = array(
     array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'fff', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
 );
@@ -50,12 +50,14 @@ while ($recvflag) {
 	 array_filter($socklist);
 	 sort($socklist);
 
-    //超过1小时自杀
-    if ($starttime + 3600 < time()) {
-        fclose($mainsocket);
-        $recvflag = false;
-        break;
-    }
+    //如果非cli超过1小时自杀
+	if(is_cli()==false){
+		if ($starttime + 3600 < time()) {
+			fclose($mainsocket);
+			$recvflag = false;
+			break;
+		}
+	}
 
 
     //发送心跳
