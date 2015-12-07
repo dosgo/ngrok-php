@@ -6,20 +6,14 @@ ignore_user_abort(true);
 //检测大小端
 define('BIG_ENDIAN', pack('L', 1) === pack('N', 1));
 
-$seraddr = 'proxy.qqbrowser.cc';
+$seraddr = 'dddd';
 $port = 4443;
 
-$Tunnels = array(
-    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'm_user', 'rport' => 0, 'lhost' => '192.168.1.111', 'lport' => 80),
-    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'm_shop', 'rport' => 0, 'lhost' => '192.168.1.111', 'lport' => 81),
-    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'm_admin', 'rport' => 0, 'lhost' => '192.168.1.111', 'lport' => 82),
-    array('protocol' => 'tcp', 'hostname' => '', 'subdomain' => '', 'rport' => 51222, 'lhost' => '192.168.1.111', 'lport' => 22),
-);
 
-/*
+
 $Tunnels = array(
-    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'dosgoadmin', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
-);*/
+    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'fff', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
+);
 
 
 $mainsocket = stream_socket_client("tcp://" . $seraddr . ":" . $port, $errno, $errstr, 30);
