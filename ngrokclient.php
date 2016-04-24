@@ -1,19 +1,23 @@
 <?php
-ConsoleOut("ngrok-php v1.0");
+ConsoleOut("ngrok-php v1.1");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 
 //检测大小端
 define('BIG_ENDIAN', pack('L', 1) === pack('N', 1));
 
-$seraddr = 'dddd';  //ngrok服务器地址
+$seraddr = 'tunnel.qydev.com';  //ngrok服务器地址
 $port = 4443;    //端口
 
 
 //你要映射到通道
 $Tunnels = array(
-    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'fff', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
+    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'xxx', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
+     array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'yyy', 'rport' => 0, 'lhost' => '192.168.8.1', 'lport' => 80),
+    array('protocol' => 'tcp', 'hostname' => '', 'subdomain' => '', 'rport' => 57715, 'lhost' => '127.0.0.1', 'lport' => 80),
+
 );
+
 
 
 $mainsocket = stream_socket_client("tcp://" . $seraddr . ":" . $port, $errno, $errstr, 30);
@@ -167,6 +171,7 @@ while ($recvflag) {
                             if ($sockinfo['linkstate'] == 1) {
                                 if ($js['Type'] == 'StartProxy') {
                                     $loacladdr = getloacladdr($Tunnels, $js['Payload']['Url']);
+
                                     $newsock = connectlocal($loacladdr['lhost'], $loacladdr['lport']);
                                     if ($newsock) {
                                         $socklist[] = array('sock' => $newsock, 'linkstate' => 0, 'type' => 3, 'tosock' => $sock);
@@ -270,9 +275,11 @@ function connectremote($seraddr, $port) {
 
 function getloacladdr($Tunnels, $url) {
     $protocol = substr($url, 0, strpos($url, ':'));
-    $subdomain = substr($url, strpos($url, '//') + 2, strpos($url, '.') - strpos($url, '//') - 2);
-    $hostname = substr($url, strpos($url, '//') + 2, strrpos($url, ':') - strpos($url, '//') - 2);
+    $hostname = substr($url, strpos($url, '//') + 2);
+    $subdomain = trim(substr($hostname,0,strpos($hostname, '.')));
     $rport = substr($url, strrpos($url, ':') + 1);
+    
+
 
     //   echo 'protocol:'.$protocol."\r\n";
     //   echo '$subdomain:'.$subdomain."\r\n";
@@ -288,8 +295,11 @@ function getloacladdr($Tunnels, $url) {
             if ($subdomain == $z['subdomain']) {
                 return $z;
             }
-            if ($rport == $z['rport']) {
-                return $z;
+            
+            if($protocol=='tcp'){
+                if ($rport == $z['rport']) {
+                    return $z;
+                }
             }
         }
     }
