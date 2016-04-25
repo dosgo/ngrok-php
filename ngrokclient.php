@@ -1,5 +1,5 @@
 <?php
-ConsoleOut("ngrok-php v1.1");
+ConsoleOut("ngrok-php v1.2");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 
@@ -8,7 +8,7 @@ define('BIG_ENDIAN', pack('L', 1) === pack('N', 1));
 
 $seraddr = 'tunnel.qydev.com';  //ngrok服务器地址
 $port = 4443;    //端口
-
+$is_verify_peer=false;//是否校验证书
 
 //你要映射到通道
 $Tunnels = array(
@@ -27,6 +27,11 @@ if (!$mainsocket) {
 }
 
 //设置加密连接，默认是ssl，如果需要tls连接，可以查看php手册stream_socket_enable_crypto函数的解释
+if($is_verify_peer==false){
+	stream_context_set_option($mainsocket, 'ssl', 'verify_host', FALSE);
+	stream_context_set_option($mainsocket, 'ssl', 'verify_peer_name', FALSE);
+	stream_context_set_option($mainsocket, 'ssl', 'verify_peer', FALSE);
+}
 stream_socket_enable_crypto($mainsocket, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT);
 stream_set_blocking($mainsocket, 0); //设置为非阻塞模式
 //发送数据
@@ -259,8 +264,7 @@ function Ping() {
 /* 连接到远程 */
 
 function connectremote($seraddr, $port) {
-    // global $seraddr;
-    //  global $port;
+    global $is_verify_peer;
     global $errno;
     global $errstr;
     $socket = stream_socket_client("tcp://" . $seraddr . ":" . $port, $errno, $errstr, 30);
@@ -268,6 +272,11 @@ function connectremote($seraddr, $port) {
         return false;
     }
     //设置加密连接，默认是ssl，如果需要tls连接，可以查看php手册stream_socket_enable_crypto函数的解释
+	if($is_verify_peer==false){
+		stream_context_set_option($socket, 'ssl', 'verify_host', FALSE);
+		stream_context_set_option($socket, 'ssl', 'verify_peer_name', FALSE);
+		stream_context_set_option($socket, 'ssl', 'verify_peer', FALSE);
+	}
     stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT);
     stream_set_blocking($socket, 0); //设置为非阻塞模式
     return $socket;
