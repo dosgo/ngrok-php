@@ -125,12 +125,20 @@ while ($runflag) {
                     //主连接关闭，关闭所有
                     if ($sockinfo['type'] == 1) {
                     	$mainsocket=0;
+                        unset($sockinfo['type']);
+                        unset($sockinfo['sock']);
+                        unset($sockinfo['tosock']);
+                        unset($sockinfo['recvbuf']);
                         unset($socklist[$k]);
                     } else {
                         if ($sockinfo['type'] == 3) {
                             fclose($sockinfo['tosock']);
                         }
                         //array_splice($socklist, $k, 1);
+                        unset($sockinfo['type']);
+                        unset($sockinfo['sock']);
+                        unset($sockinfo['tosock']);
+                        unset($sockinfo['recvbuf']);
 						unset($socklist[$k]);
                         continue;
                     }
