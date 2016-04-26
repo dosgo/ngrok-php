@@ -1,5 +1,5 @@
 <?php
-ConsoleOut("ngrok-php v1.2");
+ConsoleOut("ngrok-php v1.3");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 
@@ -12,28 +12,16 @@ $is_verify_peer=false;//是否校验证书
 
 //你要映射到通道
 $Tunnels = array(
-    array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'xxx', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
-     array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'yyy', 'rport' => 0, 'lhost' => '192.168.8.1', 'lport' => 80),
+
+     array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'yyy', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
+       array('protocol' => 'http', 'hostname' => '', 'subdomain' => 'xxx', 'rport' => 0, 'lhost' => '127.0.0.1', 'lport' => 80),
     array('protocol' => 'tcp', 'hostname' => '', 'subdomain' => '', 'rport' => 57715, 'lhost' => '127.0.0.1', 'lport' => 80),
 
 );
 
 
 
-$mainsocket = stream_socket_client("tcp://" . $seraddr . ":" . $port, $errno, $errstr, 30);
-if (!$mainsocket) {
-    ConsoleOut('连接失败');
-    return '';
-}
-
-//设置加密连接，默认是ssl，如果需要tls连接，可以查看php手册stream_socket_enable_crypto函数的解释
-if($is_verify_peer==false){
-	stream_context_set_option($mainsocket, 'ssl', 'verify_host', FALSE);
-	stream_context_set_option($mainsocket, 'ssl', 'verify_peer_name', FALSE);
-	stream_context_set_option($mainsocket, 'ssl', 'verify_peer', FALSE);
-}
-stream_socket_enable_crypto($mainsocket, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT);
-stream_set_blocking($mainsocket, 0); //设置为非阻塞模式
+$mainsocket=0;
 //发送数据
 
 
@@ -45,25 +33,38 @@ $e = null;
 $t = 1;
 
 $socklist = array();
-$socklist[] = array('sock' => $mainsocket, 'linkstate' => 0, 'type' => 1);
 
 $ClientId = '';
-$recvflag = true;
+$runflag = true;
 $pingtime = 0;
 $starttime = time(); //启动时间
+$connecttime=0;
 //注册退出执行函数
 register_shutdown_function('shutdown',$mainsocket);
-while ($recvflag) {
+while ($runflag) {
      
 	 //重排
 	 array_filter($socklist);
 	 sort($socklist);
 
+	 //检测控制连接是否连接
+	 if($mainsocket==0&&$connecttime+60<time()){
+	 	 $mainsocket = connectremote($seraddr, $port);
+         $connecttime=time();
+	     if ($mainsocket) {
+	          $socklist[] = array('sock' => $mainsocket, 'linkstate' => 0, 'type' => 1);
+	     }else{
+            $mainsocket=0;
+         }
+	 }
+
+
+
     //如果非cli超过1小时自杀
 	if(is_cli()==false){
 		if ($starttime + 3600 < time()) {
 			fclose($mainsocket);
-			$recvflag = false;
+			$runflag = false;
 			break;
 		}
 	}
@@ -74,6 +75,8 @@ while ($recvflag) {
         sendpack($mainsocket, Ping());
         $pingtime = time();
     }
+
+
 
 
 
@@ -89,16 +92,22 @@ while ($recvflag) {
         } else {
             //close的时候不是资源。。移除
             if ($z['type'] == 1) {
-                $recvflag = false;
-                break;
+               	$mainsocket=0;
+                array_splice($socklist, $k, 1);
             } else {
                 array_splice($socklist, $k, 1);
             }
         }
     }
     $t = 1;
+
     //查询
-    $res = stream_select($readfds, $writefds, $e, $t);
+    if(count($readfds)>0||count($writefds)>0){
+        $res = stream_select($readfds, $writefds, $e, $t);
+    }else{
+        sleep(1);
+        continue;
+    }
 
     if ($res === false) {
         ConsoleOut('sockerr');
@@ -115,15 +124,14 @@ while ($recvflag) {
                 if ($recvbut == false || strlen($recvbut) == 0) {
                     //主连接关闭，关闭所有
                     if ($sockinfo['type'] == 1) {
-                        $recvflag = false;
-                        break;
+                    	$mainsocket=0;
+                        unset($socklist[$k]);
                     } else {
                         if ($sockinfo['type'] == 3) {
                             fclose($sockinfo['tosock']);
                         }
                         //array_splice($socklist, $k, 1);
 						unset($socklist[$k]);
-                        //不继续循环
                         continue;
                     }
                 }
