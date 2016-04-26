@@ -93,8 +93,16 @@ while ($runflag) {
             //close的时候不是资源。。移除
             if ($z['type'] == 1) {
                	$mainsocket=0;
+                unset($z['type']);
+                unset($z['sock']);
+                unset($z['tosock']);
+                unset($z['recvbuf']);
                 array_splice($socklist, $k, 1);
             } else {
+                unset($z['type']);
+                unset($z['sock']);
+                unset($z['tosock']);
+                unset($z['recvbuf']);
                 array_splice($socklist, $k, 1);
             }
         }
