@@ -48,7 +48,6 @@ $e = null;
 $t = 1;
 
 $socklist = array();
-$socklist[] = array('sock' => $mainsocket, 'linkstate' => 0, 'type' => 1);
 
 $ClientId = '';
 $recvflag = true;
