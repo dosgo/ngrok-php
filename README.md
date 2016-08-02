@@ -11,11 +11,11 @@
 
 ##适配平台
 
--ngrok.cc[sunny.php]
+- ngrok.cc[sunny.php]
 
--natapp.cn[natapp.php]
+- natapp.cn[natapp.php]
 
-适配平台运行方法,文件内查看
+- 适配平台运行方法,文件内查看
 
 #更新日记 v1.32(2016/07/31)
 
