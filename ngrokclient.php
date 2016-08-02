@@ -112,7 +112,6 @@ while ($recvflag) {
         } else {
             //close的时候不是资源。。移除
             if ($z['type'] == 1) {
-                ConsoleOut('z:1');
                 $mainsocket = false;
             }
             unset($z['type']);
