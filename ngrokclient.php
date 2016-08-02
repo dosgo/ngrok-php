@@ -1,5 +1,5 @@
 <?php
-ConsoleOut("ngrokphp v1.32-(2016/7/31)");
+ConsoleOut("ngrokphp v1.33-(2016/8/2)");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING);
@@ -40,9 +40,6 @@ $Tunnels = array(
 
 );
 
-//建立隧道协议
-$mainsocket = connectremote($seraddr, $port);
-
 //定义变量
 $readfds = array();
 $writefds = array();
@@ -51,15 +48,20 @@ $e = null;
 $t = 1;
 
 $socklist = array();
-$socklist[] = array('sock' => $mainsocket, 'linkstate' => 0, 'type' => 1);
 
 $ClientId = '';
 $recvflag = true;
 $starttime = time();//启动时间
 $pingtime = 0;
 
+//建立隧道协议
+$mainsocket = connectremote($seraddr, $port);
+if($mainsocket) {
+    $socklist[] = array('sock' => $mainsocket, 'linkstate' => 0, 'type' => 1);
+}
+
 //注册退出执行函数
-register_shutdown_function('shutdown',$mainsocket);
+register_shutdown_function('shutdown');
 while ($recvflag) {
 
     //重排
@@ -110,18 +112,17 @@ while ($recvflag) {
         } else {
             //close的时候不是资源。。移除
             if ($z['type'] == 1) {
-                ConsoleOut('z:1');
                 $mainsocket = false;
             }
             unset($z['type']);
             unset($z['sock']);
             unset($z['tosock']);
             unset($z['recvbuf']);
-            unset($socklist[$k]);
-            continue;
+            array_splice($socklist, $k, 1);
         }
     }
 
+    //查询
     $res = stream_select($readfds, $writefds, $e, $t);
     if ($res === false) {
         ConsoleOut('sockerr');
@@ -288,8 +289,6 @@ function dnsopen($seraddr, $port) {
 /* 连接到远程 */
 function connectremote($seraddr, $port) {
     global $is_verify_peer;
-    global $errno;
-    global $errstr;
     $socket = stream_socket_client('tcp://' . $seraddr . ':' . $port, $errno, $errstr, 30);
     if (!$socket) {
         return false;
@@ -307,8 +306,6 @@ function connectremote($seraddr, $port) {
 
 /* 连接到本地 */
 function connectlocal($localaddr, $localport) {
-    global $errno;
-    global $errstr;
     $socket = stream_socket_client('tcp://' . $localaddr . ':' . $localport, $errno, $errstr, 30);
     if (!$socket) {
         return false;
@@ -494,7 +491,8 @@ function is_cli() {
 }
 
 //注册退出执行函数
-function shutdown(&$mainsocket) {
+function shutdown() {
+    global $mainsocket;
     sendpack($mainsocket, 'close');
     fclose($mainsocket);
 }
