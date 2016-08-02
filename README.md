@@ -43,8 +43,9 @@
 
 ***
 
-1.添加适配ngrok.cc[sunny.php]
+1.ngrok.cc[sunny.php]
 
-2.添加适配natapp.cn[natapp.php]
+2.natapp.cn[natapp.php]
 
+适配平台运行方法,文件内查看
 ***
