@@ -2,6 +2,8 @@
 
 一个php的ngrok客户端,不需要依赖啥扩展。。php5.2以上都可以跑，支持cgi模式，跟cli模式，意味着你在nginx/apache里面跑,特方便，代码很简单只有500行，比较讽刺的是，貌似性能比C语言版本还好，可见我的C语言有多烂。。
 
+还有个hauntek大神写的python版本，https://github.com/hauntek/python-ngrok。
+
 #运行方法。。
 直接运行就行了。。
 
