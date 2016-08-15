@@ -10,7 +10,7 @@
  *
  */
 
-ConsoleOut("欢迎使用内网穿透 natapp-php v1.32\r\nCtrl+C 退出");
+ConsoleOut("欢迎使用内网穿透 natapp-php v1.36\r\nCtrl+C 退出");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING);
@@ -36,7 +36,7 @@ $seraddr = $serverArr[0]; //服务器地址
 $port = $serverArr[1]; //端口
 $is_verify_peer = false; //是否校验证书
 
-$isDebug = false;//调试开关
+$isDebug = false; //调试开关
 
 //定义变量
 $readfds = array();
@@ -45,12 +45,12 @@ $writefds = array();
 $e = null;
 $t = 1;
 
-$tunnels = array();
+$Tunnels = array();
 $socklist = array();
 
 $ClientId = '';
 $recvflag = true;
-$starttime = time();//启动时间
+$starttime = time(); //启动时间
 $pingtime = 0;
 
 //建立隧道协议
@@ -69,7 +69,7 @@ while ($recvflag) {
 
     //检测控制连接是否连接.
     if ($mainsocket == false) {
-        $ip = dnsopen($seraddr, $port);//解析dns, port
+        $ip = dnsopen($seraddr); //解析dns
         if (!$ip) {
             ConsoleOut('连接natapp服务器失败.');
             sleep(1);
@@ -113,10 +113,6 @@ while ($recvflag) {
             if ($z['type'] == 1) {
                 $mainsocket = false;
             }
-            unset($z['type']);
-            unset($z['sock']);
-            unset($z['tosock']);
-            unset($z['recvbuf']);
             array_splice($socklist, $k, 1);
         }
     }
@@ -144,10 +140,6 @@ while ($recvflag) {
                     if ($sockinfo['type'] == 3) {
                         fclose($sockinfo['tosock']);
                     }
-                    unset($sockinfo['type']);
-                    unset($sockinfo['sock']);
-                    unset($sockinfo['tosock']);
-                    unset($sockinfo['recvbuf']);
                     unset($socklist[$k]);
                     continue;
                 }
@@ -183,16 +175,16 @@ while ($recvflag) {
                             if ($js['Type'] == 'AuthResp') {
                                 if ($js['Payload']['Error'] != null) {
                                     ConsoleOut($js['Payload']['Error']);
-                                    sleep(60);
-                                    continue;
+                                    sleep(30);
+                                    exit();
                                 }
                                 $ClientId = $js['Payload']['ClientId'];
                                 $pingtime = time();
                                 sendpack($sock, Ping());
                             }
                             if ($js['Type'] == 'NewTunnel') {
-                                $tunnels[$js['Payload']['Url']] = $js['Payload'];
-                                ConsoleOut('隧道建立成功:' . $js['Payload']['Url']);//注册成功
+                                $Tunnels[$js['Payload']['Url']] = $js['Payload'];
+                                ConsoleOut('隧道建立成功:' . $js['Payload']['Url']);
                             }
                         }
 
@@ -201,27 +193,23 @@ while ($recvflag) {
                             //未连接本地
                             if ($sockinfo['linkstate'] == 1) {
                                 if ($js['Type'] == 'StartProxy') {
-                                    $loacladdr = getloacladdr($js['Payload']['Url']);
+                                    $loacladdr = getloacladdr($Tunnels, $js['Payload']['Url']);
 
-                                    $ip = dnsopen($loacladdr[0], $loacladdr[1]);//解析dns, port
-                                    if (!$ip) {//本地地址无效转向指定html页面
-                                        $body = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Web服务错误</title><meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><style>html,body{height:100%%}body{margin:0;padding:0;width:100%%;display:table;font-weight:100;font-family:"Microsoft YaHei",Arial,Helvetica,sans-serif}.container{text-align:center;display:table-cell;vertical-align:middle}.content{border:1px solid #ebccd1;text-align:center;display:inline-block;background-color:#f2dede;color:#a94442;padding:30px}.title{font-size:18px}.copyright{margin-top:30px;text-align:right;color:#000}</style></head><body><div class="container"><div class="content"><div class="title">隧道 %s 无效<br>无法连接到<strong>%s</strong>. 此端口尚未提供Web服务</div><div class="copyright">Powered By natapp.cn</div></div></div></body></html>';
+                                    $newsock = connectlocal($loacladdr[0], $loacladdr[1]);
+                                    if ($newsock) {
+                                        $socklist[] = array('sock' => $newsock, 'linkstate' => 0, 'type' => 3, 'tosock' => $sock);
+                                        //把本地连接覆盖上去
+                                        $sockinfo['tosock'] = $newsock;
+                                        $sockinfo['linkstate'] = 2;
+                                    } else {
+                                        $body = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Web服务错误</title><meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><style>html,body{height:100%%}body{margin:0;padding:0;width:100%%;display:table;font-weight:100;font-family:"Microsoft YaHei",Arial,Helvetica,sans-serif}.container{text-align:center;display:table-cell;vertical-align:middle}.content{border:1px solid #ebccd1;text-align:center;display:inline-block;background-color:#f2dede;color:#a94442;padding:30px}.title{font-size:18px}.copyright{margin-top:30px;text-align:right;color:#000}</style></head><body><div class="container"><div class="content"><div class="title">隧道 %s 无效<br>无法连接到<strong>%s</strong>. 此端口尚未提供Web服务</div></div></div></body></html>';
                                         $html = sprintf($body, $js['Payload']['Url'], $loacladdr[0] .':' . $loacladdr[1]);
                                         $header = "HTTP/1.0 502 Bad Gateway"."\r\n";
-                                        $header .= "Server: ngrok-php"."\r\n";
                                         $header .= "Content-Type: text/html"."\r\n";
                                         $header .= "Content-Length: %d"."\r\n";
                                         $header .= "\r\n"."%s";
                                         $buf = sprintf($header, strlen($html), $html);
                                         sendbuf($sock, $buf);
-                                    } else {
-                                        $newsock = connectlocal($ip, $loacladdr[1]);
-                                        if ($newsock) {
-                                            $socklist[] = array('sock' => $newsock, 'linkstate' => 0, 'type' => 3, 'tosock' => $sock);
-                                        }
-                                        //把本地连接覆盖上去
-                                        $sockinfo['tosock'] = $newsock;
-                                        $sockinfo['linkstate'] = 2;
                                     }
                                 }
                             }
@@ -268,15 +256,10 @@ while ($recvflag) {
     }
 }
 
-/* 域名解析-端口 */
-function dnsopen($seraddr, $port) {
-    $ip = gethostbyname($seraddr);//解析dns
+/* 域名解析 */
+function dnsopen($host) {
+    $ip = gethostbyname($host); //解析dns
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-        return false;
-    }
-
-    $fsock = @fsockopen($ip, $port, $errno, $errstr, 3);//检测端口
-    if (!$fsock) {
         return false;
     }
     return $ip;
@@ -294,8 +277,9 @@ function connectremote($seraddr, $port) {
         stream_context_set_option($socket, 'ssl', 'verify_host', false);
         stream_context_set_option($socket, 'ssl', 'verify_peer_name', false);
         stream_context_set_option($socket, 'ssl', 'verify_peer', false);
+        stream_context_set_option($socket, 'ssl', 'allow_self_signed', false);
     }
-    stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+    stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
     stream_set_blocking($socket, 0); //设置为非阻塞模式
     return $socket;
 }
@@ -310,9 +294,8 @@ function connectlocal($localaddr, $localport) {
     return $socket;
 }
 
-function getloacladdr($url) {
-    global $tunnels;
-    $proto = explode(':', $tunnels[$url]['LocalAddr']);
+function getloacladdr($Tunnels, $url) {
+    $proto = explode(':', $Tunnels[$url]['LocalAddr']);
     return $proto;
 }
 
@@ -434,7 +417,7 @@ function natapp_auth($token) {
 
     $fp = stream_socket_client('tcp://' . $host . ':' . $port, $errno, $errstr, 10);
     if (!$fp) {
-        ConsoleOut('连接认证服务器: https://auth.natapp.cn 错误.' . $errno . $errstr);
+        ConsoleOut('连接认证服务器: https://auth.natapp.cn 错误.');
         sleep(10);
         exit();
     }
@@ -442,8 +425,9 @@ function natapp_auth($token) {
         stream_context_set_option($fp, 'ssl', 'verify_host', false);
         stream_context_set_option($fp, 'ssl', 'verify_peer_name', false);
         stream_context_set_option($fp, 'ssl', 'verify_peer', false);
+        stream_context_set_option($fp, 'ssl', 'allow_self_signed', false);
     }
-    stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+    stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
 
     $data = array(
         'Authtoken' => $token['authtoken'],
