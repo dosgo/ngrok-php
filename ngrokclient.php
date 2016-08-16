@@ -1,5 +1,5 @@
 <?php
-ConsoleOut("ngrokphp v1.33-(2016/8/2)");
+ConsoleOut("ngrokphp v1.36-(2016/8/8)");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING);
@@ -51,7 +51,7 @@ $socklist = array();
 
 $ClientId = '';
 $recvflag = true;
-$starttime = time();//启动时间
+$starttime = time(); //启动时间
 $pingtime = 0;
 
 //建立隧道协议
@@ -70,7 +70,7 @@ while ($recvflag) {
 
     //检测控制连接是否连接.
     if ($mainsocket == false) {
-        $ip = dnsopen($seraddr, $port);//解析dns, port
+        $ip = dnsopen($seraddr); //解析dns
         if (!$ip) {
             ConsoleOut('update dns');
             sleep(1);
@@ -114,10 +114,6 @@ while ($recvflag) {
             if ($z['type'] == 1) {
                 $mainsocket = false;
             }
-            unset($z['type']);
-            unset($z['sock']);
-            unset($z['tosock']);
-            unset($z['recvbuf']);
             array_splice($socklist, $k, 1);
         }
     }
@@ -145,10 +141,6 @@ while ($recvflag) {
                     if ($sockinfo['type'] == 3) {
                         fclose($sockinfo['tosock']);
                     }
-                    unset($sockinfo['type']);
-                    unset($sockinfo['sock']);
-                    unset($sockinfo['tosock']);
-                    unset($sockinfo['recvbuf']);
                     unset($socklist[$k]);
                     continue;
                 }
@@ -191,12 +183,12 @@ while ($recvflag) {
                                 }
                             }
                             if ($js['Type'] == 'NewTunnel') {
-                                if ($js['Payload']['Error'] != null) {//判断NewTunnel是否有错误
-                                    ConsoleOut('Add tunnel failed,'.$js['Payload']['Error']);//注册失败
-                                    sleep(60);//延迟60后继续注册
-                                    continue;
+                                if ($js['Payload']['Error'] != null) {
+                                    ConsoleOut('Add tunnel failed,' . $js['Payload']['Error']);
+                                    sleep(30);
+                                } else {
+                                    ConsoleOut('Add tunnel ok,type:' . $js['Payload']['Protocol'] . ' url:' . $js['Payload']['Url']);
                                 }
-                                ConsoleOut('Add tunnel ok,type:' . $js['Payload']['Protocol'] . ' url:' . $js['Payload']['Url']);//注册成功
                             }
                         }
 
@@ -207,25 +199,21 @@ while ($recvflag) {
                                 if ($js['Type'] == 'StartProxy') {
                                     $loacladdr = getloacladdr($Tunnels, $js['Payload']['Url']);
 
-                                    $ip = dnsopen($loacladdr['lhost'], $loacladdr['lport']);//解析dns, port
-                                    if (!$ip) {//本地地址无效转向指定html页面
-                                        $body = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Web服务错误</title><meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><style>html,body{height:100%%}body{margin:0;padding:0;width:100%%;display:table;font-weight:100;font-family:"Microsoft YaHei",Arial,Helvetica,sans-serif}.container{text-align:center;display:table-cell;vertical-align:middle}.content{border:1px solid #ebccd1;text-align:center;display:inline-block;background-color:#f2dede;color:#a94442;padding:30px}.title{font-size:18px}.copyright{margin-top:30px;text-align:right;color:#000}</style></head><body><div class="container"><div class="content"><div class="title">隧道 %s 无效<br>无法连接到<strong>%s</strong>. 此端口尚未提供Web服务</div><div class="copyright">Powered By ngrok-php</div></div></div></body></html>';
+                                    $newsock = connectlocal($loacladdr['lhost'], $loacladdr['lport']);
+                                    if ($newsock) {
+                                        $socklist[] = array('sock' => $newsock, 'linkstate' => 0, 'type' => 3, 'tosock' => $sock);
+                                        //把本地连接覆盖上去
+                                        $sockinfo['tosock'] = $newsock;
+                                        $sockinfo['linkstate'] = 2;
+                                    } else {
+                                        $body = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Web服务错误</title><meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><style>html,body{height:100%%}body{margin:0;padding:0;width:100%%;display:table;font-weight:100;font-family:"Microsoft YaHei",Arial,Helvetica,sans-serif}.container{text-align:center;display:table-cell;vertical-align:middle}.content{border:1px solid #ebccd1;text-align:center;display:inline-block;background-color:#f2dede;color:#a94442;padding:30px}.title{font-size:18px}.copyright{margin-top:30px;text-align:right;color:#000}</style></head><body><div class="container"><div class="content"><div class="title">隧道 %s 无效<br>无法连接到<strong>%s</strong>. 此端口尚未提供Web服务</div></div></div></body></html>';
                                         $html = sprintf($body, $js['Payload']['Url'], $loacladdr['lhost'] .':' . $loacladdr['lport']);
                                         $header = "HTTP/1.0 502 Bad Gateway"."\r\n";
-                                        $header .= "Server: ngrok-php"."\r\n";
                                         $header .= "Content-Type: text/html"."\r\n";
                                         $header .= "Content-Length: %d"."\r\n";
                                         $header .= "\r\n"."%s";
                                         $buf = sprintf($header, strlen($html), $html);
                                         sendbuf($sock, $buf);
-                                    } else {
-                                        $newsock = connectlocal($ip, $loacladdr['lport']);
-                                        if ($newsock) {
-                                            $socklist[] = array('sock' => $newsock, 'linkstate' => 0, 'type' => 3, 'tosock' => $sock);
-                                        }
-                                        //把本地连接覆盖上去
-                                        $sockinfo['tosock'] = $newsock;
-                                        $sockinfo['linkstate'] = 2;
                                     }
                                 }
                             }
@@ -272,15 +260,10 @@ while ($recvflag) {
     }
 }
 
-/* 域名解析-端口 */
-function dnsopen($seraddr, $port) {
-    $ip = gethostbyname($seraddr);//解析dns
+/* 域名解析 */
+function dnsopen($host) {
+    $ip = gethostbyname($host); //解析dns
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
-        return false;
-    }
-
-    $fsock = @fsockopen($ip, $port, $errno, $errstr, 3);//检测端口
-    if (!$fsock) {
         return false;
     }
     return $ip;
@@ -298,6 +281,7 @@ function connectremote($seraddr, $port) {
         stream_context_set_option($socket, 'ssl', 'verify_host', false);
         stream_context_set_option($socket, 'ssl', 'verify_peer_name', false);
         stream_context_set_option($socket, 'ssl', 'verify_peer', false);
+        stream_context_set_option($socket, 'ssl', 'allow_self_signed', false);
     }
     stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT);
     stream_set_blocking($socket, 0); //设置为非阻塞模式
@@ -319,8 +303,6 @@ function getloacladdr($Tunnels, $url) {
     $hostname = substr($url, strpos($url, '//') + 2);
     $subdomain = trim(substr($hostname, 0, strpos($hostname, '.')));
     $rport = substr($url, strrpos($url, ':') + 1);
-    
-
 
     //   echo 'protocol:'.$protocol."\r\n";
     //   echo '$subdomain:'.$subdomain."\r\n";
@@ -336,15 +318,11 @@ function getloacladdr($Tunnels, $url) {
             if ($subdomain == $z['subdomain']) {
                 return $z;
             }
-            
-            if ($protocol == 'tcp') {
-                if ($rport == $z['rport']) {
-                    return $z;
-                }
+            if ($rport == $z['rport']) {
+                return $z;
             }
         }
     }
-
     //  array('protocol'=>$protocol,'hostname'=>'','subdomain'=>'','rport'=>0,'lhost'=>'','lport'=>80),
 }
 
@@ -385,15 +363,6 @@ function RegProxy($ClientId) {
     $Payload = array('ClientId' => $ClientId);
     $json = array(
         'Type' => 'RegProxy',
-        'Payload' => $Payload,
-    );
-    return json_encode($json);
-}
-
-function Pong() {
-    $Payload = (object) array();
-    $json = array(
-        'Type' => 'Pong',
         'Payload' => $Payload,
     );
     return json_encode($json);
