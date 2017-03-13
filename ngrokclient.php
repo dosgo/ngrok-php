@@ -1,5 +1,5 @@
 <?php
-ConsoleOut("ngrokphp v1.36-(2016/8/8)");
+ConsoleOut("ngrokphp v1.38-(2017/3/13)");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING);
@@ -318,6 +318,8 @@ function getloacladdr($Tunnels, $url) {
             if ($subdomain == $z['subdomain']) {
                 return $z;
             }
+        }
+        if ($protocol == 'tcp') {
             if ($rport == $z['rport']) {
                 return $z;
             }
