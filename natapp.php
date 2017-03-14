@@ -10,7 +10,7 @@
  *
  */
 
-ConsoleOut("欢迎使用内网穿透 natapp-php v1.36\r\nCtrl+C 退出");
+ConsoleOut("欢迎使用内网穿透 natapp-php v1.38\r\nCtrl+C 退出");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING);
@@ -446,7 +446,7 @@ function natapp_auth($token) {
 
     $body = null;
     while (!feof($fp)) {
-        $line = fgets($fp,1024); //去除请求包的头只显示页面的返回数据
+        $line = fgets($fp, 1024); //去除请求包的头只显示页面的返回数据
         if ($line == "\n" || $line == "\r\n") {
             $chunk_size = (integer) hexdec(fgets($fp, 1024));
             if ($chunk_size > 0) {
