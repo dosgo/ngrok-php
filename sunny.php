@@ -2,15 +2,15 @@
 /**
  * ngrok.cc 内网穿透服务 PHP 版
  *
- * 本程序仅适用于ngrok.cc 使用前请先在 http://ngrok.cc 注册账号.
+ * 本程序仅适用于ngrok.cc 使用前请先在 https://ngrok.cc 注册账号.
  * 机器只要装有php(无须web服务)即可运行本程序,可用于路由器等OpenWRT操作系统
- * 命令行模式执行 php sunny.php即可运行
+ * 命令行模式执行 php sunny.php --authtoken=xxxxxx 即可运行
  *
  * 感谢 dosgo 提供的 ngrok-php 原版程序
  *
  */
 
-ConsoleOut("欢迎使用内网穿透 sunny-php v1.36\r\nCtrl+C 退出");
+ConsoleOut("欢迎使用内网穿透 sunny-php v1.38\r\nCtrl+C 退出");
 set_time_limit(0); //设置执行时间
 ignore_user_abort(true);
 error_reporting(E_ALL ^ E_NOTICE ^ E_WARNING);
@@ -30,15 +30,14 @@ if ($options['clientid'] == '') {
     die();
 }
 
-$seraddr = 'server.ngrok.cc'; //ngrok服务器地址
-$port = 4443; //端口
+$Tunnels = array();
+
+$serverArr = ngrok_auth($options['clientid']);
+$seraddr = $serverArr[0]; //服务器地址
+$port = $serverArr[1]; //端口
 $is_verify_peer = false; //是否校验证书
 
 $isDebug = false; //调试开关
-
-//设置映射隧道,支持多渠道[客户端id]
-$Tunnels = array();
-ngrok_yunnel($Tunnels, ngrok_auth($options['clientid']));
 
 //定义变量
 $readfds = array();
@@ -318,6 +317,8 @@ function getloacladdr($Tunnels, $url) {
             if ($subdomain == $z['subdomain']) {
                 return $z;
             }
+        }
+        if ($protocol == 'tcp') {
             if ($rport == $z['rport']) {
                 return $z;
             }
@@ -332,7 +333,7 @@ function NgrokAuth() {
         'OS' => 'darwin',
         'Arch' => 'amd64',
         'Version' => '2',
-        'MmVersion' => '1.7',
+        'MmVersion' => '2.1',
         'User' => 'user',
         'Password' => '',
     );
@@ -465,29 +466,39 @@ function is_cli() {
 
 //ngrok.cc 获取服务器设置
 function ngrok_auth($clientid) {
+    global $is_verify_peer;
     $host = 'www.ngrok.cc';
-    $port = 80;
+    $port = 443;
 
-    $fp = @fsockopen($host, $port, $errno, $errstr, 10);
+    $fp = stream_socket_client('tcp://' . $host . ':' . $port, $errno, $errstr, 10);
     if (!$fp) {
-        ConsoleOut('连接认证服务器: http://www.ngrok.cc 错误.');
+        ConsoleOut('连接认证服务器: https://www.ngrok.cc 错误.');
         sleep(10);
         exit();
     }
+    if ($is_verify_peer == false) {
+        stream_context_set_option($fp, 'ssl', 'verify_host', false);
+        stream_context_set_option($fp, 'ssl', 'verify_peer_name', false);
+        stream_context_set_option($fp, 'ssl', 'verify_peer', false);
+        stream_context_set_option($fp, 'ssl', 'allow_self_signed', false);
+    }
+    stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT);
 
     $header = "GET "."/api/clientid/clientid/%s"." HTTP/1.1"."\r\n";
     $header .= "Host: %s"."\r\n";
     $header .= "\r\n";
-
     $buf = sprintf($header, $clientid, $host);
     $write = fputs($fp, $buf);
 
     $body = null;
     while (!feof($fp)) {
-        $line = fgets($fp,1024); //去除请求包的头只显示页面的返回数据
+        $line = fgets($fp, 1024); //去除请求包的头只显示页面的返回数据
         if ($line == "\n" || $line == "\r\n") {
-            $body = fread($fp, 1024);
-            break;
+            $chunk_size = (integer) hexdec(fgets($fp, 1024));
+            if ($chunk_size > 0) {
+                $body = fread($fp, $chunk_size);
+                break;
+            }
         }
     }
 
@@ -495,29 +506,32 @@ function ngrok_auth($clientid) {
     $authData = json_decode($body, true);
 
     if ($authData['status'] != 200) {
-        ConsoleOut('认证错误:' . $authData['status'] . ' ErrorCode:' . $authData['msg']);
+        ConsoleOut('认证错误:' . $authData['msg'] . ' ErrorCode:' . $authData['status']);
         sleep(10);
         exit();
     }
     ConsoleOut('认证成功,正在连接服务器...');
-    return $authData['data'];
+    //设置映射隧道,支持多渠道[客户端id]
+    ngrok_adds($authData['data']);
+    $proto = explode(':', $authData['server']);
+    return $proto;
 }
 
 //ngrok.cc 添加到渠道队列
-function ngrok_yunnel($Tunnels, $Tunnel) {
+function ngrok_adds($Tunnel) {
     global $Tunnels;
     foreach ($Tunnel as $tunnelinfo) {
         if (isset($tunnelinfo['proto']['http'])) {
-            $t = 'http';
+            $protocol = 'http';
         }
         if (isset($tunnelinfo['proto']['https'])) {
-            $t = 'https';
+            $protocol = 'https';
         }
         if (isset($tunnelinfo['proto']['tcp'])) {
-            $t = 'tcp';
+            $protocol = 'tcp';
         }
 
-        $proto = explode(':', $tunnelinfo['proto'][$t]); //127.0.0.1:80 拆分成数组
+        $proto = explode(':', $tunnelinfo['proto'][$protocol]); //127.0.0.1:80 拆分成数组
         if ($proto[0] == '') {
             $proto[0] = '127.0.0.1';
         }
@@ -526,7 +540,7 @@ function ngrok_yunnel($Tunnels, $Tunnel) {
         }
 
         $Tunnels[] = array(
-            'protocol' => $t,
+            'protocol' => $protocol,
             'hostname' => $tunnelinfo['hostname'],
             'subdomain' => $tunnelinfo['subdomain'],
             'httpauth' => $tunnelinfo['httpauth'],
